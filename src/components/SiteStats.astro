@@ -1,0 +1,55 @@
+---
+import { Icon } from 'astro-pure/user' // 复用图标组件 
+import { getTotalWords } from '@/components/home/utils' // 引用你已有的工具函数
+import { getBlogCollection } from 'astro-pure/server'
+
+// 1. 设置站点启动日期
+const siteStartDate = new Date('2026-05-02')
+const today = new Date()
+const diffTime = Math.abs(today.getTime() - siteStartDate.getTime())
+const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+
+// 2. 获取累计字数
+const totalWords = await getTotalWords()
+
+const allPosts = await getBlogCollection()
+const totalPosts = allPosts.length
+---
+
+<div class='mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3'>
+  {/* 运行时间 */}
+  <div class='flex items-center gap-2.5 rounded-lg border border-border px-3 py-2.5 bg-muted/50'>
+    <Icon name='calendar' class='size-5 text-primary/80' />
+    <div class='flex flex-col justify-center'>
+      <p class='text-[11px] font-medium text-muted-foreground leading-tight'>Uptime</p>
+      <p class='text-sm font-semibold text-foreground leading-tight'>
+        <span class='text-base'>{diffDays}</span> Days
+      </p>
+    </div>
+  </div>
+
+  {/* 累计篇数 */}
+  <div class='flex items-center gap-2.5 rounded-lg border border-border px-3 py-2.5 bg-muted/50'>
+    <Icon name='bulb' class='size-5 text-primary/80' />
+    <div class='flex flex-col justify-center'>
+      <p class='text-[11px] font-medium text-muted-foreground leading-tight'>Posts</p>
+      <p class='text-sm font-semibold text-foreground leading-tight'>
+        <span class='text-base'>{totalPosts}</span> 
+      </p>
+    </div>
+  </div>
+
+  {/* 累计字数 */}
+  <div class='flex items-center gap-2.5 rounded-lg border border-border px-3 py-2.5 bg-muted/50'>
+    <Icon name='document' class='size-5 text-primary/80' />
+    <div class='flex flex-col justify-center'>
+      <p class='text-[11px] font-medium text-muted-foreground leading-tight'>Words</p>
+      <p class='text-sm font-semibold text-foreground leading-tight'>
+        <span class='text-base'>{totalWords.toLocaleString() }</span> 
+        <!-- <span class='text-base'>{(totalWords / 1000).toFixed(1)}</span> k字 -->
+      </p>
+    </div>
+  </div>
+
+
+</div>
