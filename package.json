@@ -1,7 +1,10 @@
 {
-  "name": "astro-theme-pure",
+  "name": "bufengji",
   "type": "module",
-  "version": "4.1.4",
+  "version": "1.0.0",
+  "engines": {
+    "node": "24.x"
+  },
   "scripts": {
     "dev": "astro dev",
     "dev:check": "astro check --watch & astro dev",

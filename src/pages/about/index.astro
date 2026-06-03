@@ -1,9 +1,7 @@
 ---
-import { Card, Collapse, Spoiler, Timeline } from 'astro-pure/user'
+import { Timeline } from 'astro-pure/user'
 import PageLayout from '@/layouts/CommonPage.astro'
-import Substats from '@/components/about/Substats.astro'
-import ToolSection from '@/components/about/ToolSection.astro'
-import { calculateSiteAge, getTotalWords } from '@/components/home/utils' // 引用你已有的工具函数
+import { calculateSiteAge, getTotalWords } from '@/components/home/utils'
 import { getBlogCollection } from 'astro-pure/server'
 
 const headings = [
@@ -15,11 +13,6 @@ const headings = [
   { depth: 2, slug: 'about-blog', text: '关于本站' }
 ]
 
-const siteStartDate = new Date('2026-05-02')
-const today = new Date()
-const diffTime = Math.abs(today.getTime() - siteStartDate.getTime())
-const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
 const totalWords = await getTotalWords()
 
 const allPosts = await getBlogCollection()
@@ -30,9 +23,9 @@ const siteAgeText = calculateSiteAge('2026-05-02')
 <PageLayout title='About' {headings} comment>
   <h2 id='about-me'>关于我</h2>
   <ul>
-    <li>业余安全研究</li>
+    <li>业余安全研究，也写一点技术之外的东西</li>
     <li>工作之余找点有意思的话题写写。尝试写过很多次博客了，CMS、静态站也都用过，但每次都写不了几篇，希望这次能多写点。
-    什么都知道一点，什么都不太通。Web和二进制等可能都会涉及，以后可能也写点非技术的。</li>
+    什么都知道一点，什么都不太通。Web和二进制等可能都会涉及，政治、历史、社科、读书笔记等内容也可能会写。</li>
   </ul>
   {/* about-blog */}
   <h2 id='about-blog'>关于本站</h2>
@@ -76,7 +69,10 @@ const siteAgeText = calculateSiteAge('2026-05-02')
       Site hosting: <a href='https://vercel.com/' target='_blank'>Vercel</a>
     </li>
     <li>
-      CI/CD: <a href='https://vercel.com/workflow' target='_blank'>Vercel Workflow</a>
+      CI/CD: <a href='https://github.com/CenTr1X/blog-astro' target='_blank'>GitHub</a> + <a
+        href='https://vercel.com/'
+        target='_blank'>Vercel</a
+      >
     </li>
     <li>Comment system: <a href='https://waline.js.org' target='_blank'>Waline</a></li>
     <li>

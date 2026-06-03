@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "astro-theme-pure",
+      "name": "bufengji",
       "dependencies": {
         "@astrojs/check": "0.9.8",
         "@astrojs/compiler-rs": "^0.1.8",
