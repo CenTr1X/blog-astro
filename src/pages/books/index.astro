@@ -1,0 +1,629 @@
+---
+import PageLayout from '@/layouts/CommonPage.astro'
+import { getCollection } from 'astro:content'
+
+import { statusLabels, type Book } from '../../data/books'
+
+export const prerender = true
+
+const headings = [
+  { depth: 2, slug: 'recent-reading', text: 'Reading Shelf' },
+  { depth: 2, slug: 'years', text: 'Reading Archive' }
+]
+
+const dateFormatter = new Intl.DateTimeFormat('en-US', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric'
+})
+
+const books = (await getCollection('books')).map((entry) => entry.data as Book)
+const getBookSortOrder = (book: Book) => book.sortOrder ?? Number.MAX_SAFE_INTEGER
+const compareBooksByFallback = (a: Book, b: Book) =>
+  getBookSortOrder(a) - getBookSortOrder(b) || a.title.localeCompare(b.title, 'zh-CN')
+
+const datedBooks = books
+  .filter((book) => book.finishedDate)
+  .sort(
+    (a, b) =>
+      Number(new Date(b.finishedDate || 0)) -
+        Number(new Date(a.finishedDate || 0)) ||
+      compareBooksByFallback(a, b)
+  )
+
+const statusOrder: Record<Book['status'], number> = {
+  reading: 0,
+  planned: 1,
+  read: 2
+}
+
+const shelfStatusLabels: Record<Book['status'], string> = {
+  read: '已读',
+  reading: '在读',
+  planned: '想读'
+}
+
+const shelfBooks = [...books].sort((a, b) => {
+  const statusDiff = statusOrder[a.status] - statusOrder[b.status]
+  if (statusDiff !== 0) return statusDiff
+
+  return (
+    Number(new Date(b.finishedDate || 0)) -
+      Number(new Date(a.finishedDate || 0)) ||
+    compareBooksByFallback(a, b)
+  )
+})
+
+const years = Array.from(
+  new Set(datedBooks.map((book) => new Date(book.finishedDate || '').getFullYear()))
+).sort((a, b) => b - a)
+
+const sections = years.map((year) => ({
+  year,
+  books: datedBooks.filter((book) => new Date(book.finishedDate || '').getFullYear() === year)
+}))
+
+const readCount = books.filter((book) => book.status === 'read').length
+const readingCount = books.filter((book) => book.status === 'reading').length
+const plannedCount = books.filter((book) => book.status === 'planned').length
+const readWordCount = books.reduce(
+  (total, book) => (book.status === 'read' && book.wordCount ? total + book.wordCount : total),
+  0
+)
+
+const formatDate = (date?: string) => (date ? dateFormatter.format(new Date(date)) : '')
+const formatRating = (rating?: number) => {
+  if (!rating) return ''
+  const safeRating = Math.max(0, Math.min(5, Math.round(rating)))
+  return '★'.repeat(safeRating) + '☆'.repeat(5 - safeRating)
+}
+const formatWordCount = (wordCount?: number) => {
+  if (!wordCount) return '未记录'
+  if (wordCount < 10000) return `${wordCount.toLocaleString('zh-CN')} 字`
+
+  const tenThousands = wordCount / 10000
+  const displayValue =
+    tenThousands >= 100 ? Math.round(tenThousands).toString() : tenThousands.toFixed(1)
+  return `${displayValue.replace(/\.0$/, '')}万`
+}
+const getDialogId = (book: Book, index: number) =>
+  `book-${index}-${book.title.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')}`
+const getLinkLabel = (link: string) => {
+  try {
+    const hostname = new URL(link).hostname.replace(/^www\./, '')
+    if (hostname.endsWith('book.douban.com')) return 'Douban'
+    if (hostname.endsWith('weread.qq.com')) return 'Weread'
+    if (hostname.endsWith('goodreads.com')) return 'Goodreads'
+    return 'Official Site'
+  } catch {
+    return 'External Link'
+  }
+}
+---
+
+<PageLayout title='Books' {headings}>
+  <p>
+    这里记录已经读过、正在阅读和准备阅读的书。技术、安全、政治、历史、社科和其它闲书都可以放在这里。
+  </p>
+
+  <div class='not-prose my-8 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4'>
+    <div class='rounded-lg border p-3'>
+      <div class='text-muted-foreground'>已读</div>
+      <div class='mt-1 text-2xl font-medium'>{readCount}</div>
+    </div>
+    <div class='rounded-lg border p-3'>
+      <div class='text-muted-foreground'>在读</div>
+      <div class='mt-1 text-2xl font-medium'>{readingCount}</div>
+    </div>
+    <div class='rounded-lg border p-3'>
+      <div class='text-muted-foreground'>想读</div>
+      <div class='mt-1 text-2xl font-medium'>{plannedCount}</div>
+    </div>
+    <div class='rounded-lg border p-3'>
+      <div class='text-muted-foreground'>累计字数</div>
+      <div class='mt-1 text-2xl font-medium'>{formatWordCount(readWordCount)}</div>
+    </div>
+  </div>
+
+  <h2 id='recent-reading'>Reading Shelf</h2>
+  {
+    books.length === 0 ? (
+      <p>暂未添加书籍记录。</p>
+    ) : (
+      <div class='not-prose'>
+        <div class='book-grid'>
+          {shelfBooks.map((book, index) => {
+            const dialogId = getDialogId(book, index)
+            return (
+              <div class={`book-preview group status-${book.status}`} title={book.title}>
+                <div class='book-shell'>
+                  <div class='book-cover'>
+                    <div class='book-spine' />
+                    <span class='book-status-corner' aria-hidden='true' />
+                    {book.cover ? (
+                      <img src={book.cover} alt={book.title} loading='lazy' decoding='async' />
+                    ) : (
+                      <div class='book-fallback'>
+                        <span>{book.title}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button
+                  class='book-open'
+                  data-dialog-id={dialogId}
+                  aria-label={`查看《${book.title}》的读书记录，状态：${shelfStatusLabels[book.status]}`}
+                />
+              </div>
+            )
+          })}
+        </div>
+
+        {shelfBooks.map((book, index) => {
+          const dialogId = getDialogId(book, index)
+          return (
+            <dialog class='book-dialog' id={dialogId}>
+              <article class={`reading-card status-${book.status}`}>
+                <header class='reading-card-header'>
+                  <span>读书卡</span>
+                  <div class='flex items-center gap-2'>
+                    {book.finishedDate && <span>No.{book.finishedDate.replaceAll('-', '')}</span>}
+                    <button class='book-dialog-close' aria-label='关闭读书卡'>×</button>
+                  </div>
+                </header>
+
+                <div class='reading-card-main'>
+                  <div class='reading-card-cover'>
+                    {book.cover ? (
+                      <img src={book.cover} alt={book.title} loading='lazy' decoding='async' />
+                    ) : (
+                      <div class='book-fallback'>
+                        <span>{book.title}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div class='min-w-0 flex-1'>
+                    <span class='field-label'>书名</span>
+                    <h3>{book.title}</h3>
+                    <div class='mt-3 grid gap-2 text-sm'>
+                      <div>
+                        <span class='field-label'>作者</span>
+                        <span>{book.author}</span>
+                      </div>
+                      <div>
+                        <span class='field-label'>状态</span>
+                        <span class='detail-status'>{statusLabels[book.status]}</span>
+                      </div>
+                      {book.rating && (
+                        <div>
+                          <span class='field-label'>评分</span>
+                          <span class='rating'>{formatRating(book.rating)}</span>
+                        </div>
+                      )}
+                      {book.finishedDate && (
+                        <div>
+                          <span class='field-label'>日期</span>
+                          <span>{formatDate(book.finishedDate)}</span>
+                        </div>
+                      )}
+                      {book.wordCount && (
+                        <div>
+                          <span class='field-label'>字数</span>
+                          <span>{formatWordCount(book.wordCount)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {(book.tags?.length || book.note) && <div class='card-divider' />}
+
+                {book.tags && book.tags.length > 0 && (
+                  <div class='reading-card-section'>
+                    <span class='field-label'>标签</span>
+                    <div class='mt-2 flex flex-wrap gap-2'>
+                      {book.tags.map((tag) => (
+                        <span class='tag-pill'>{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {book.note && (
+                  <div class='reading-card-section'>
+                    <span class='field-label'>读书笔记</span>
+                    <p>{book.note}</p>
+                  </div>
+                )}
+
+                {(book.link || book.recommended) && (
+                  <>
+                    <div class='card-divider' />
+                    <footer class='reading-card-footer'>
+                      {book.link ? (
+                        <a href={book.link} target='_blank' rel='noopener noreferrer'>{getLinkLabel(book.link)} →</a>
+                      ) : (
+                        <span />
+                      )}
+                      {book.recommended && <span class='rating'>⊕ 推荐</span>}
+                    </footer>
+                  </>
+                )}
+              </article>
+            </dialog>
+          )
+        })}
+      </div>
+    )
+  }
+
+  <h2 id='years'>Reading Archive</h2>
+  {
+    years.length === 0 ? (
+      <p>添加带有 <code>finishedDate</code> 的记录后，会在这里按年份归档。</p>
+    ) : (
+      <div class='not-prose'>
+        <div class='year-grid'>
+          {sections.map(({ books: yearBooks, year }) => (
+            <a class='year-card' href={`#books-${year}`}>
+              <span>{year}</span>
+              <small>{yearBooks.length} 册</small>
+            </a>
+          ))}
+        </div>
+
+        <div class='mt-8 flex flex-col gap-8'>
+          {sections.map(({ books: yearBooks, year }) => (
+            <section aria-labelledby={`books-${year}`}>
+              <h3 class='mb-3 text-lg font-medium' id={`books-${year}`}>{year}</h3>
+              <div class='grid gap-3'>
+                {yearBooks.map((book) => (
+                  <article class='year-book-row'>
+                    <div>
+                      <h4>{book.title}</h4>
+                      <p>{book.author}</p>
+                    </div>
+                    <div class='flex flex-wrap justify-end gap-2 text-xs text-muted-foreground'>
+                      <span>{formatDate(book.finishedDate)}</span>
+                      {book.rating && <span>{formatRating(book.rating)}</span>}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
+      </div>
+    )
+  }
+</PageLayout>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('.book-open').forEach((button) => {
+    button.addEventListener('click', () => {
+      const dialog = document.getElementById(button.dataset.dialogId || '') as HTMLDialogElement | null
+      dialog?.showModal()
+    })
+  })
+
+  document.querySelectorAll<HTMLDialogElement>('.book-dialog').forEach((dialog) => {
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close()
+    })
+
+    dialog.querySelector<HTMLButtonElement>('.book-dialog-close')?.addEventListener('click', () => {
+      dialog.close()
+    })
+  })
+</script>
+
+<style>
+  .book-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.35rem 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .book-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1.6rem 1.15rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .book-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+  }
+
+  .book-preview {
+    --book-corner-color: hsl(var(--muted-foreground) / 0.42);
+    position: relative;
+    cursor: pointer;
+  }
+
+  .book-preview.status-reading {
+    --book-corner-color: hsl(172 48% 37% / 0.86);
+  }
+
+  .book-preview.status-planned {
+    --book-corner-color: hsl(39 72% 48% / 0.82);
+  }
+
+  .book-preview.status-read {
+    --book-corner-color: hsl(var(--muted-foreground) / 0.36);
+  }
+
+  .book-shell {
+    transform: perspective(32rem) rotateY(-8deg);
+    transform-origin: left center;
+    transition:
+      transform 0.2s ease,
+      filter 0.2s ease;
+  }
+
+  .book-preview:hover .book-shell {
+    filter: brightness(1.04);
+    transform: perspective(32rem) rotateY(-2deg) translateY(-0.125rem);
+  }
+
+  .book-cover {
+    aspect-ratio: 17 / 25;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid hsl(var(--border) / 1);
+    border-radius: 0.25rem;
+    background: hsl(var(--muted) / 1);
+    box-shadow: 0.35rem 0.45rem 0 hsl(var(--muted) / 0.75);
+  }
+
+  .book-cover img,
+  .reading-card-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .book-spine {
+    position: absolute;
+    inset-block: 0;
+    left: 0;
+    z-index: 1;
+    width: 13%;
+    background: linear-gradient(to right, hsl(var(--foreground) / 0.16), transparent);
+    pointer-events: none;
+  }
+
+  .book-status-corner {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
+    width: 0;
+    height: 0;
+    border-top: 0.8rem solid var(--book-corner-color);
+    border-left: 0.8rem solid transparent;
+    pointer-events: none;
+  }
+
+  .book-fallback {
+    display: flex;
+    height: 100%;
+    align-items: center;
+    justify-content: center;
+    padding: 0.65rem;
+    text-align: center;
+    color: hsl(var(--foreground) / 1);
+  }
+
+  .book-fallback span {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 4;
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+
+  .book-open {
+    position: absolute;
+    inset: 0;
+  }
+
+  .book-open:focus-visible {
+    outline: 2px solid hsl(var(--primary) / 1);
+    outline-offset: 0.25rem;
+  }
+
+  .book-dialog {
+    width: min(36rem, calc(100vw - 2rem));
+    border: 0;
+    border-radius: 0.5rem;
+    padding: 0;
+    color: hsl(var(--foreground) / 1);
+    background: hsl(var(--background) / 1);
+  }
+
+  .book-dialog::backdrop {
+    background: hsl(var(--foreground) / 0.45);
+  }
+
+  .reading-card {
+    --detail-status-bg: hsl(var(--muted) / 1);
+    --detail-status-border: hsl(var(--border) / 1);
+    --detail-status-fg: hsl(var(--muted-foreground) / 1);
+    border: 1px solid hsl(var(--border) / 1);
+  }
+
+  .reading-card.status-reading {
+    --detail-status-bg: hsl(168 42% 92% / 1);
+    --detail-status-border: hsl(172 54% 35% / 0.62);
+    --detail-status-fg: hsl(173 62% 21% / 1);
+  }
+
+  .reading-card.status-planned {
+    --detail-status-bg: hsl(42 86% 92% / 1);
+    --detail-status-border: hsl(38 74% 48% / 0.62);
+    --detail-status-fg: hsl(34 72% 25% / 1);
+  }
+
+  .reading-card-header,
+  .reading-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1.25rem;
+    color: hsl(var(--muted-foreground) / 1);
+    font-size: 0.75rem;
+  }
+
+  .reading-card-header {
+    border-bottom: 1px solid hsl(var(--border) / 1);
+    letter-spacing: 0.12em;
+  }
+
+  .book-dialog-close {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 999px;
+    color: hsl(var(--muted-foreground) / 1);
+    transition: background-color 0.2s ease;
+  }
+
+  .book-dialog-close:hover {
+    background: hsl(var(--muted) / 1);
+  }
+
+  .reading-card-main {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.25rem;
+  }
+
+  .reading-card-cover {
+    aspect-ratio: 17 / 25;
+    width: clamp(5.75rem, 22vw, 7rem);
+    flex: none;
+    overflow: hidden;
+    border: 1px solid hsl(var(--border) / 1);
+    border-radius: 0.25rem;
+    background: hsl(var(--muted) / 1);
+  }
+
+  .reading-card h3 {
+    margin-top: 0.125rem;
+    font-size: 1.125rem;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  .field-label {
+    margin-inline-end: 0.55rem;
+    color: hsl(var(--muted-foreground) / 1);
+    font-size: 0.75rem;
+  }
+
+  .detail-status {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--detail-status-border);
+    border-radius: 999px;
+    background: var(--detail-status-bg);
+    padding: 0.08rem 0.48rem;
+    color: var(--detail-status-fg);
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }
+
+  .rating {
+    letter-spacing: 0.08em;
+    color: hsl(var(--foreground) / 1);
+  }
+
+  .card-divider {
+    height: 1px;
+    margin-inline: 1.25rem;
+    background: hsl(var(--border) / 1);
+  }
+
+  .reading-card-section {
+    padding: 1rem 1.25rem;
+  }
+
+  .reading-card-section p {
+    margin-top: 0.5rem;
+    color: hsl(var(--muted-foreground) / 1);
+    font-size: 0.875rem;
+    line-height: 1.7;
+  }
+
+  .tag-pill {
+    border-radius: 999px;
+    background: hsl(var(--muted) / 1);
+    padding: 0.25rem 0.55rem;
+    color: hsl(var(--muted-foreground) / 1);
+    font-size: 0.75rem;
+  }
+
+  .reading-card-footer {
+    border-top: 0;
+  }
+
+  .year-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+  }
+
+  .year-card {
+    display: flex;
+    width: 4.25rem;
+    height: 4.25rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid hsl(var(--border) / 1);
+    border-radius: 0.5rem;
+    text-decoration: none;
+    transition:
+      border-color 0.2s ease,
+      color 0.2s ease;
+  }
+
+  .year-card:hover {
+    border-color: hsl(var(--primary) / 1);
+  }
+
+  .year-card span {
+    font-weight: 500;
+  }
+
+  .year-card small {
+    margin-top: 0.15rem;
+    color: hsl(var(--muted-foreground) / 1);
+    font-size: 0.7rem;
+  }
+
+  .year-book-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border: 1px solid hsl(var(--border) / 1);
+    border-radius: 0.5rem;
+    padding: 0.8rem 1rem;
+  }
+
+  .year-book-row h4 {
+    font-weight: 500;
+  }
+
+  .year-book-row p {
+    margin-top: 0.2rem;
+    color: hsl(var(--muted-foreground) / 1);
+    font-size: 0.875rem;
+  }
+</style>

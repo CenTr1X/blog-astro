@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="book-manager-token" content="__BOOK_MANAGER_TOKEN__" />
+    <title>Book Manager</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Centrix / Library</p>
+        <h1>添加书籍</h1>
+        <p class="intro">填写后直接生成博客可读取的书籍记录。</p>
+      </div>
+      <dl class="stats" aria-label="当前书架统计">
+        <div>
+          <dt>全部</dt>
+          <dd id="stat-total">-</dd>
+        </div>
+        <div>
+          <dt>在读</dt>
+          <dd id="stat-reading">-</dd>
+        </div>
+        <div>
+          <dt>已读</dt>
+          <dd id="stat-read">-</dd>
+        </div>
+        <div>
+          <dt>想读</dt>
+          <dd id="stat-planned">-</dd>
+        </div>
+      </dl>
+    </header>
+
+    <main class="workspace">
+      <form id="book-form" enctype="multipart/form-data">
+        <section class="form-section" aria-labelledby="section-basic">
+          <div class="section-heading">
+            <span>01</span>
+            <div>
+              <h2 id="section-basic">基本信息</h2>
+              <p>书名、作者和阅读状态为必填项。</p>
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <label class="field field-wide">
+              <span>书名 <b>*</b></span>
+              <input name="title" id="title" type="text" autocomplete="off" required autofocus />
+            </label>
+            <label class="field">
+              <span>作者 <b>*</b></span>
+              <input name="author" id="author" type="text" autocomplete="off" required />
+            </label>
+            <fieldset class="field status-field">
+              <legend>阅读状态 <b>*</b></legend>
+              <div class="segmented-control">
+                <label
+                  ><input type="radio" name="status" value="planned" checked /><span
+                    >想读</span
+                  ></label
+                >
+                <label><input type="radio" name="status" value="reading" /><span>在读</span></label>
+                <label><input type="radio" name="status" value="read" /><span>已读</span></label>
+              </div>
+            </fieldset>
+            <label class="field" id="finished-date-field" hidden>
+              <span>读完日期 <b>*</b></span>
+              <input name="finishedDate" id="finished-date" type="date" />
+            </label>
+            <label class="field">
+              <span>外部链接</span>
+              <input
+                name="link"
+                type="url"
+                inputmode="url"
+                placeholder="https://book.douban.com/subject/..."
+              />
+            </label>
+          </div>
+        </section>
+
+        <section class="form-section" aria-labelledby="section-detail">
+          <div class="section-heading">
+            <span>02</span>
+            <div>
+              <h2 id="section-detail">阅读记录</h2>
+              <p>不知道的信息可以暂时留空，之后仍可编辑 JSON。</p>
+            </div>
+          </div>
+
+          <div class="field-grid compact-grid">
+            <label class="field">
+              <span>字数</span>
+              <input
+                name="wordCount"
+                id="word-count"
+                type="number"
+                inputmode="numeric"
+                min="1"
+                step="1"
+                placeholder="例如 320000"
+              />
+            </label>
+            <label class="field">
+              <span>评分</span>
+              <select name="rating" id="rating">
+                <option value="">暂不评分</option>
+                <option value="1">1 / 5</option>
+                <option value="2">2 / 5</option>
+                <option value="3">3 / 5</option>
+                <option value="4">4 / 5</option>
+                <option value="5">5 / 5</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>排序值</span>
+              <input
+                name="sortOrder"
+                type="number"
+                inputmode="numeric"
+                min="0"
+                step="1"
+                placeholder="数字越小越靠前"
+              />
+            </label>
+            <label class="field field-wide">
+              <span>标签</span>
+              <input name="tags" id="tags" type="text" placeholder="历史，政治学，读书笔记" />
+              <small>使用逗号分隔多个标签</small>
+            </label>
+            <label class="field field-wide">
+              <span>简短记录</span>
+              <textarea
+                name="note"
+                id="note"
+                rows="5"
+                placeholder="写下一段简短印象或阅读计划。"
+              ></textarea>
+            </label>
+            <label class="toggle-row field-wide">
+              <input name="recommended" type="checkbox" value="true" />
+              <span class="toggle" aria-hidden="true"></span>
+              <span><strong>推荐</strong><small>在书架中显示推荐标记</small></span>
+            </label>
+          </div>
+        </section>
+
+        <section class="form-section" aria-labelledby="section-cover">
+          <div class="section-heading">
+            <span>03</span>
+            <div>
+              <h2 id="section-cover">本地封面</h2>
+              <p>可选，图片会复制到博客的封面目录。</p>
+            </div>
+          </div>
+
+          <div class="cover-controls">
+            <label class="cover-picker" id="cover-picker">
+              <input
+                name="cover"
+                id="cover"
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/avif"
+              />
+              <span class="cover-picker-title">选择封面图片</span>
+              <span id="cover-file-name">JPG、PNG、WebP 或 AVIF，不超过 10 MB</span>
+            </label>
+            <label class="toggle-row auto-cover-toggle">
+              <input name="autoFetchCover" type="checkbox" value="true" checked />
+              <span class="toggle" aria-hidden="true"></span>
+              <span
+                ><strong>自动获取豆瓣封面</strong
+                ><small>未选择本地图片时，根据豆瓣链接或书名与作者自动获取</small></span
+              >
+            </label>
+          </div>
+        </section>
+
+        <div class="form-actions">
+          <button class="primary-button" id="submit-button" type="submit">添加到书架</button>
+          <button class="secondary-button" type="reset">清空</button>
+          <p id="form-message" class="form-message" role="status" aria-live="polite"></p>
+        </div>
+      </form>
+
+      <aside class="preview" aria-label="书籍卡片预览">
+        <p class="preview-label">CARD PREVIEW</p>
+        <div class="book-cover-wrap">
+          <img id="preview-cover" alt="所选书籍封面预览" hidden />
+          <div id="preview-placeholder" class="cover-placeholder">
+            <span>BOOK</span>
+          </div>
+          <span
+            id="preview-status"
+            class="status-corner"
+            data-status="planned"
+            aria-label="想读"
+          ></span>
+        </div>
+        <div class="preview-copy">
+          <h2 id="preview-title">书名</h2>
+          <p id="preview-author">作者</p>
+          <p id="preview-meta" class="preview-meta">想读</p>
+          <div id="preview-tags" class="preview-tags"></div>
+          <p id="preview-note" class="preview-note">书籍记录会在这里预览。</p>
+        </div>
+      </aside>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,13 @@
+{
+  "name": "Laphroaig 10 Year Old",
+  "kind": "whisky",
+  "producer": "Laphroaig",
+  "origin": "Islay, Scotland",
+  "vintage": "10 年",
+  "rating": 4,
+  "abv": "40%",
+  "sortOrder": 10,
+  "tags": ["泥煤", "海风", "烟熏"],
+  "note": "一条用于查看烈酒页面展示效果的示例记录。",
+  "recommended": true
+}

@@ -54,8 +54,9 @@ const renderContent = async (post: CollectionEntry<'blog'>, site: URL) => {
 }
 
 const GET = async (context: AstroGlobal) => {
+  const blogPosts = (await getBlogCollection()) as CollectionEntry<'blog'>[]
   const allPostsByDate = sortMDByDate(
-    (await getBlogCollection()).filter((post) => !post.data.draft)
+    blogPosts.filter((post) => !post.data.draft)
   ) as CollectionEntry<'blog'>[]
   const siteUrl = context.site ?? new URL(import.meta.env.SITE)
 

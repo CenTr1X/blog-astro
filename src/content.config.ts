@@ -41,4 +41,41 @@ const blog = defineCollection({
     })
 })
 
-export const collections = {blog}
+const books = defineCollection({
+  loader: glob({ base: './src/content/books', pattern: '**/*.json' }),
+  schema: z.object({
+    title: z.string(),
+    author: z.string(),
+    status: z.enum(['read', 'reading', 'planned']),
+    cover: z.string().optional(),
+    finishedDate: z.string().optional(),
+    wordCount: z.number().int().positive().optional(),
+    sortOrder: z.number().int().nonnegative().optional(),
+    rating: z.number().min(1).max(5).optional(),
+    tags: z.array(z.string()).default([]),
+    note: z.string().optional(),
+    link: z.url().optional(),
+    recommended: z.boolean().default(false)
+  })
+})
+
+const spirits = defineCollection({
+  loader: glob({ base: './src/content/spirits', pattern: '**/*.json' }),
+  schema: z.object({
+    name: z.string(),
+    kind: z.enum(['whisky', 'brandy', 'rum', 'gin', 'vodka', 'tequila', 'baijiu', 'liqueur', 'other']),
+    producer: z.string().optional(),
+    origin: z.string().optional(),
+    vintage: z.string().optional(),
+    rating: z.number().min(1).max(5).optional(),
+    image: z.string().optional(),
+    abv: z.string().optional(),
+    sortOrder: z.number().int().nonnegative().optional(),
+    tags: z.array(z.string()).default([]),
+    note: z.string().optional(),
+    link: z.url().optional(),
+    recommended: z.boolean().default(false)
+  })
+})
+
+export const collections = { blog, books, spirits }

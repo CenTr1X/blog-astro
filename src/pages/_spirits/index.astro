@@ -1,0 +1,430 @@
+---
+import PageLayout from '@/layouts/CommonPage.astro'
+import { getCollection } from 'astro:content'
+
+import { kindLabels, type Spirit } from '../../data/spirits'
+
+export const prerender = true
+
+const headings = [
+  { depth: 2, slug: 'all-spirits', text: 'Spirits Cabinet' }
+]
+
+const spirits = (await getCollection('spirits'))
+  .map((entry) => entry.data as Spirit)
+  .sort(
+    (a, b) =>
+      (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER) ||
+      a.name.localeCompare(b.name, 'en')
+  )
+
+const kindCount = new Set(spirits.map((spirit) => spirit.kind)).size
+const recommendedCount = spirits.filter((spirit) => spirit.recommended).length
+
+const formatRating = (rating?: number) => {
+  if (!rating) return ''
+  const safeRating = Math.max(0, Math.min(5, Math.round(rating)))
+  return '★'.repeat(safeRating) + '☆'.repeat(5 - safeRating)
+}
+const getDialogId = (spirit: Spirit, index: number) =>
+  `spirit-${index}-${spirit.name.toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')}`
+const getLinkLabel = (link: string) => {
+  try {
+    const hostname = new URL(link).hostname.replace(/^www\./, '')
+    if (hostname.endsWith('whiskybase.com')) return 'Whiskybase'
+    if (hostname.endsWith('distiller.com')) return 'Distiller'
+    if (hostname.endsWith('wine-searcher.com')) return 'Wine-Searcher'
+    return 'Official Site'
+  } catch {
+    return 'External Link'
+  }
+}
+---
+
+<PageLayout title='Spirits' {headings}>
+  <p>
+    这里记录品过的烈酒。威士忌、白兰地、朗姆、金酒、白酒，或者偶然遇到的其它蒸馏酒，都可以作为一条简短的品饮记录留下。
+  </p>
+
+  <div class='not-prose my-8 grid grid-cols-3 gap-3 text-sm'>
+    <div class='rounded-lg border p-3'>
+      <div class='text-muted-foreground'>已记录</div>
+      <div class='mt-1 text-2xl font-medium'>{spirits.length}</div>
+    </div>
+    <div class='rounded-lg border p-3'>
+      <div class='text-muted-foreground'>类型</div>
+      <div class='mt-1 text-2xl font-medium'>{kindCount}</div>
+    </div>
+    <div class='rounded-lg border p-3'>
+      <div class='text-muted-foreground'>推荐</div>
+      <div class='mt-1 text-2xl font-medium'>{recommendedCount}</div>
+    </div>
+  </div>
+
+  <h2 id='all-spirits'>Spirits Cabinet</h2>
+  {
+    spirits.length === 0 ? (
+      <p>暂未添加品饮记录。</p>
+    ) : (
+      <div class='not-prose'>
+        <div class='spirit-grid'>
+          {spirits.map((spirit, index) => {
+            const dialogId = getDialogId(spirit, index)
+            return (
+              <div class='spirit-preview group' title={spirit.name}>
+                <div class='spirit-bottle'>
+                  <div class='spirit-neck' />
+                  <div class='spirit-label'>
+                    {spirit.image ? (
+                      <img src={spirit.image} alt={spirit.name} loading='lazy' decoding='async' />
+                    ) : (
+                      <div class='spirit-fallback'>
+                        <strong>{spirit.name}</strong>
+                        <span>{kindLabels[spirit.kind]}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button
+                  class='spirit-open'
+                  data-dialog-id={dialogId}
+                  aria-label={`查看「${spirit.name}」的品饮记录`}
+                />
+              </div>
+            )
+          })}
+        </div>
+
+        {spirits.map((spirit, index) => {
+          const dialogId = getDialogId(spirit, index)
+          return (
+            <dialog class='spirit-dialog' id={dialogId}>
+              <article class='tasting-card'>
+                <header class='tasting-card-header'>
+                  <span>品饮卡</span>
+                  <div class='flex items-center gap-2'>
+                    <button class='spirit-dialog-close' aria-label='关闭品饮卡'>×</button>
+                  </div>
+                </header>
+
+                <div class='tasting-card-main'>
+                  <div class='tasting-card-image'>
+                    {spirit.image ? (
+                      <img src={spirit.image} alt={spirit.name} loading='lazy' decoding='async' />
+                    ) : (
+                      <div class='spirit-fallback'>
+                        <strong>{spirit.name}</strong>
+                        <span>{kindLabels[spirit.kind]}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div class='min-w-0 flex-1'>
+                    <span class='field-label'>名称</span>
+                    <h3>{spirit.name}</h3>
+                    <div class='mt-3 grid gap-2 text-sm'>
+                      {spirit.producer && (
+                        <div>
+                          <span class='field-label'>生产者</span>
+                          <span>{spirit.producer}</span>
+                        </div>
+                      )}
+                      <div>
+                        <span class='field-label'>类型</span>
+                        <span>{kindLabels[spirit.kind]}</span>
+                      </div>
+                      {spirit.origin && (
+                        <div>
+                          <span class='field-label'>产地</span>
+                          <span>{spirit.origin}</span>
+                        </div>
+                      )}
+                      {spirit.vintage && (
+                        <div>
+                          <span class='field-label'>陈年 / 版本</span>
+                          <span>{spirit.vintage}</span>
+                        </div>
+                      )}
+                      {spirit.abv && (
+                        <div>
+                          <span class='field-label'>酒精度</span>
+                          <span>{spirit.abv}</span>
+                        </div>
+                      )}
+                      {spirit.rating && (
+                        <div>
+                          <span class='field-label'>评分</span>
+                          <span class='rating'>{formatRating(spirit.rating)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {(spirit.tags?.length || spirit.note) && <div class='card-divider' />}
+
+                {spirit.tags && spirit.tags.length > 0 && (
+                  <div class='tasting-card-section'>
+                    <span class='field-label'>风味 / 标签</span>
+                    <div class='mt-2 flex flex-wrap gap-2'>
+                      {spirit.tags.map((tag) => (
+                        <span class='tag-pill'>{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {spirit.note && (
+                  <div class='tasting-card-section'>
+                    <span class='field-label'>品饮记录</span>
+                    <p>{spirit.note}</p>
+                  </div>
+                )}
+
+                {(spirit.link || spirit.recommended) && (
+                  <>
+                    <div class='card-divider' />
+                    <footer class='tasting-card-footer'>
+                      {spirit.link ? (
+                        <a href={spirit.link} target='_blank' rel='noopener noreferrer'>{getLinkLabel(spirit.link)} →</a>
+                      ) : (
+                        <span />
+                      )}
+                      {spirit.recommended && <span class='rating'>⊕ 推荐</span>}
+                    </footer>
+                  </>
+                )}
+              </article>
+            </dialog>
+          )
+        })}
+      </div>
+    )
+  }
+</PageLayout>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('.spirit-open').forEach((button) => {
+    button.addEventListener('click', () => {
+      const dialog = document.getElementById(button.dataset.dialogId || '') as HTMLDialogElement | null
+      dialog?.showModal()
+    })
+  })
+
+  document.querySelectorAll<HTMLDialogElement>('.spirit-dialog').forEach((dialog) => {
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close()
+    })
+
+    dialog.querySelector<HTMLButtonElement>('.spirit-dialog-close')?.addEventListener('click', () => {
+      dialog.close()
+    })
+  })
+</script>
+
+<style>
+  .spirit-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem 0.9rem;
+  }
+
+  @media (min-width: 640px) {
+    .spirit-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1.5rem 1rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .spirit-grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+
+  .spirit-preview {
+    position: relative;
+    cursor: pointer;
+  }
+
+  .spirit-bottle {
+    display: flex;
+    min-height: 11rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    transition:
+      filter 0.2s ease,
+      transform 0.2s ease;
+  }
+
+  .spirit-preview:hover .spirit-bottle {
+    filter: brightness(1.04);
+    transform: translateY(-0.125rem);
+  }
+
+  .spirit-neck {
+    width: 35%;
+    height: 2rem;
+    border: 1px solid hsl(var(--border) / 1);
+    border-bottom: 0;
+    border-radius: 999px 999px 0 0;
+    background: hsl(var(--muted) / 1);
+  }
+
+  .spirit-label {
+    aspect-ratio: 2 / 3;
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid hsl(var(--border) / 1);
+    border-radius: 0.45rem;
+    background: hsl(var(--muted) / 1);
+    box-shadow: 0.35rem 0.45rem 0 hsl(var(--muted) / 0.75);
+  }
+
+  .spirit-label img,
+  .tasting-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .spirit-fallback {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.75rem;
+    text-align: center;
+    color: hsl(var(--foreground) / 1);
+  }
+
+  .spirit-fallback strong {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+
+  .spirit-fallback span {
+    color: hsl(var(--muted-foreground) / 1);
+    font-size: 0.7rem;
+  }
+
+  .spirit-open {
+    position: absolute;
+    inset: 0;
+  }
+
+  .spirit-open:focus-visible {
+    outline: 2px solid hsl(var(--primary) / 1);
+    outline-offset: 0.25rem;
+  }
+
+  .spirit-dialog {
+    width: min(38rem, calc(100vw - 2rem));
+    border: 0;
+    border-radius: 0.5rem;
+    padding: 0;
+    color: hsl(var(--foreground) / 1);
+    background: hsl(var(--background) / 1);
+  }
+
+  .spirit-dialog::backdrop {
+    background: hsl(var(--foreground) / 0.45);
+  }
+
+  .tasting-card {
+    border: 1px solid hsl(var(--border) / 1);
+  }
+
+  .tasting-card-header,
+  .tasting-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.9rem 1.25rem;
+    color: hsl(var(--muted-foreground) / 1);
+    font-size: 0.75rem;
+  }
+
+  .tasting-card-header {
+    border-bottom: 1px solid hsl(var(--border) / 1);
+    letter-spacing: 0.12em;
+  }
+
+  .spirit-dialog-close {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 999px;
+    color: hsl(var(--muted-foreground) / 1);
+    transition: background-color 0.2s ease;
+  }
+
+  .spirit-dialog-close:hover {
+    background: hsl(var(--muted) / 1);
+  }
+
+  .tasting-card-main {
+    display: flex;
+    gap: 1rem;
+    padding: 1.25rem;
+  }
+
+  .tasting-card-image {
+    aspect-ratio: 2 / 3;
+    width: 5.5rem;
+    flex: none;
+    overflow: hidden;
+    border: 1px solid hsl(var(--border) / 1);
+    border-radius: 0.45rem;
+    background: hsl(var(--muted) / 1);
+  }
+
+  .tasting-card h3 {
+    margin-top: 0.125rem;
+    font-size: 1.125rem;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+
+  .field-label {
+    margin-inline-end: 0.55rem;
+    color: hsl(var(--muted-foreground) / 1);
+    font-size: 0.75rem;
+  }
+
+  .rating {
+    letter-spacing: 0.08em;
+    color: hsl(var(--foreground) / 1);
+  }
+
+  .card-divider {
+    height: 1px;
+    margin-inline: 1.25rem;
+    background: hsl(var(--border) / 1);
+  }
+
+  .tasting-card-section {
+    padding: 1rem 1.25rem;
+  }
+
+  .tasting-card-section p {
+    margin-top: 0.5rem;
+    color: hsl(var(--muted-foreground) / 1);
+    font-size: 0.875rem;
+    line-height: 1.7;
+  }
+
+  .tag-pill {
+    border-radius: 999px;
+    background: hsl(var(--muted) / 1);
+    padding: 0.25rem 0.55rem;
+    color: hsl(var(--muted-foreground) / 1);
+    font-size: 0.75rem;
+  }
+</style>
